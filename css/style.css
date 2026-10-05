@@ -17,31 +17,31 @@
 :root{
   --calc1:#9aa0a8; --calc2:#7e848c; --calc3:#585d64; --calc-border:#4a4e55;
   --brand:#3f444b;
-  --lcd-bg1:#d3ead9; --lcd-bg2:#bcd9c2; --ink:#2b3a2e;
+  --lcd-bg1:#d3ead9; --lcd-bg2:#bcd9c2; --ink:#2b3a2e; --paper:#cfe5d4;
   --accent1:#4f7a5c; --accent2:#3a5c44; --accent-border:#2c4634;
 }
 [data-theme="ocean"]{
   --calc1:#5a7a9c; --calc2:#446084; --calc3:#2c425c; --calc-border:#1e2f42;
   --brand:#d7e3f0;
-  --lcd-bg1:#d2e9ec; --lcd-bg2:#b2d6da; --ink:#1e3a42;
+  --lcd-bg1:#d2e9ec; --lcd-bg2:#b2d6da; --ink:#1e3a42; --paper:#c2e2e6;
   --accent1:#3f8a7d; --accent2:#2c665d; --accent-border:#1f4a44;
 }
 [data-theme="sunset"]{
   --calc1:#b08a5e; --calc2:#93703f; --calc3:#6b5233; --calc-border:#4f3d26;
   --brand:#f2e2c4;
-  --lcd-bg1:#f4e8cb; --lcd-bg2:#e6d3a8; --ink:#4a3423;
+  --lcd-bg1:#f4e8cb; --lcd-bg2:#e6d3a8; --ink:#4a3423; --paper:#efe1bd;
   --accent1:#b06a3c; --accent2:#7e4a2a; --accent-border:#5c331e;
 }
 [data-theme="gameboy"]{
   --calc1:#a8a898; --calc2:#8c8c7e; --calc3:#6b6b5e; --calc-border:#55554a;
   --brand:#2a3a7c;
-  --lcd-bg1:#a8bd6e; --lcd-bg2:#8b9f59; --ink:#2a3318;
+  --lcd-bg1:#a8bd6e; --lcd-bg2:#8b9f59; --ink:#2a3318; --paper:#9aab62;
   --accent1:#8a3040; --accent2:#64222e; --accent-border:#4a1822;
 }
 [data-theme="sakura"]{
   --calc1:#cfa9b6; --calc2:#b28a98; --calc3:#86636f; --calc-border:#664c56;
   --brand:#f7e8ee;
-  --lcd-bg1:#f6e2e9; --lcd-bg2:#e9c7d4; --ink:#5c2f3f;
+  --lcd-bg1:#f6e2e9; --lcd-bg2:#e9c7d4; --ink:#5c2f3f; --paper:#efd4dd;
   --accent1:#b46a86; --accent2:#875069; --accent-border:#653c4f;
 }
 
@@ -170,7 +170,7 @@ body{
 }
 .mode-btn:active{transform:translateY(3px); box-shadow:0 0 0 rgba(0,0,0,.25);}
 .mode-btn b{font-size:17px; letter-spacing:2px;}
-.mode-btn span{font-family:"DotGothic16",monospace; font-size:14px; opacity:.75;}
+.mode-btn .mode-ico{font-size:30px; line-height:1.25;}
 .title-scores{width:280px; color:var(--ink); margin-top:2px;}
 .ts-head{text-align:center; font-size:12px; letter-spacing:3px; font-weight:700; margin-bottom:6px;}
 .title-scores ol{margin:0; padding:0 0 0 26px; font-size:14px; font-weight:600;}
@@ -293,7 +293,7 @@ body.immersive{
   position:fixed; inset:0;
 }
 body.immersive{
-  --lcd-bg1:#000000; --lcd-bg2:#000000; --ink:#f2f2f2;
+  --lcd-bg1:#000000; --lcd-bg2:#000000; --ink:#f2f2f2; --paper:#000000;
 }
 body.immersive .page{min-height:100dvh;}
 body.immersive .stage{width:100vw !important; height:100dvh !important;}

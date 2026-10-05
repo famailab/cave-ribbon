@@ -21,9 +21,13 @@ let settings = Object.assign({ theme:"", muted:false, brand:"" }, store.get(LS.s
 let bests = Object.assign({ cave:0, flappy:0, heli:0, ship:0 }, store.get(LS.best, {}));
 
 let INK = "#2b3a2e";
+let PAPER = "#cfe5d4";
 function refreshInk(){
-  const v = getComputedStyle(document.body).getPropertyValue("--ink").trim();
+  const cs = getComputedStyle(document.body);
+  const v = cs.getPropertyValue("--ink").trim();
   if (v) INK = v;
+  const p = cs.getPropertyValue("--paper").trim();
+  if (p) PAPER = p;
 }
 function applyTheme(id){
   settings.theme = id; store.set(LS.settings, settings);
@@ -181,9 +185,9 @@ cave: {
     while (s.segs.length && s.segs[0].x < G.worldX - 80) s.segs.shift();
     while (s.genX < G.worldX + G.W + 240) this.genCol(s);
     // silky symmetric physics (after the reference SFCave): same accel both ways,
-    // no punchy gravity — feather the press and the ribbon glides
-    G.vy += (G.pressing ? -1 : 1) * 2100 * dt;
-    G.vy = Math.max(-540, Math.min(540, G.vy));
+    // gentle enough to feather — no more rocketing into the ceiling on a tap
+    G.vy += (G.pressing ? -1 : 1) * 1100 * dt;
+    G.vy = Math.max(-480, Math.min(480, G.vy));
     G.py += G.vy * dt;
     // trail
     s.trail.push({ x:G.worldX + G.px, y:G.py });
@@ -289,8 +293,8 @@ heli: {
     s.rotor += dt * 28;
     G.worldX += s.speed * dt;
     // silky symmetric physics, same as the cave ribbon
-    G.vy += (G.pressing ? -1 : 1) * 2100 * dt;
-    G.vy = Math.max(-540, Math.min(540, G.vy));
+    G.vy += (G.pressing ? -1 : 1) * 1100 * dt;
+    G.vy = Math.max(-480, Math.min(480, G.vy));
     G.py += G.vy * dt;
     while (s.nextX < G.worldX + G.W + 320){
       const w = 44, h = 60 + Math.random() * 110;
@@ -362,10 +366,18 @@ ship: {
       tx:G.W/2, ty:G.H*0.68, dragging:false,
       rocks:[], bullets:[], fireT:0, spawnT:0.6, stars:[],
       kills:0, gun:1, drones:[], ebullets:[], droneT:5,
+      miss:0, gauge:0, boss:null,
     };
     G.px = G.W/2; G.py = G.H*0.68;
     for (let i = 0; i < 42; i++)
       s.stars.push({ x:Math.random()*G.W, y:Math.random()*G.H, d:0.3 + Math.random()*0.7 });
+  },
+  spawnBoss(s){
+    // the more you score, the meaner it gets
+    const hp = Math.min(120, 40 + Math.floor(G.score / 10));
+    s.boss = { x:G.W/2, y:-70, hp, maxhp:hp, t:0, fireA:0.6, fireB:2.2, ang:0 };
+    floater(G.W/2, G.H/2 - 40, "!! BOSS !!");
+    Sfx.alarm();
   },
   spawnRock(s){
     const r = 12 + Math.random() * 15;
@@ -420,11 +432,21 @@ ship: {
     }
     // rocks
     s.spawnT -= dt;
-    if (s.spawnT <= 0){ s.spawnT = Math.max(0.42, 0.95 - G.t * 0.008); this.spawnRock(s); }
+    if (s.spawnT <= 0){
+      const iv = Math.max(0.42, 0.95 - G.t * 0.008);
+      s.spawnT = s.boss ? iv * 4 : iv;               // boss fight: rocks take a back seat
+      this.spawnRock(s);
+    }
     for (let i = s.rocks.length - 1; i >= 0; i--){
       const r = s.rocks[i];
       r.x += r.vx * dt; r.y += r.vy * dt; r.rot += r.vr * dt;
-      if (r.y > G.H + 40 || r.x < -50 || r.x > G.W + 50){ s.rocks.splice(i, 1); continue; }
+      if (r.y > G.H + 40){
+        s.rocks.splice(i, 1);
+        s.miss++; s.gauge++;                          // every rock you let through feeds the boss gauge
+        if (!s.boss && s.gauge >= 20) this.spawnBoss(s);
+        continue;
+      }
+      if (r.x < -50 || r.x > G.W + 50){ s.rocks.splice(i, 1); continue; }
       let dead = false;
       for (let j = s.bullets.length - 1; j >= 0; j--){
         const b = s.bullets[j];
@@ -440,7 +462,7 @@ ship: {
     }
     // --- enemy drones: they hunt back ---
     s.droneT -= dt;
-    if (G.t > 15 && s.droneT <= 0 && s.drones.length < 2){
+    if (!s.boss && G.t > 15 && s.droneT <= 0 && s.drones.length < 2){
       s.droneT = 3.5 + Math.random() * 2.5;
       s.drones.push({ x:Math.random()*G.W, y:-30, hp:2, t:0, fireT:1.4, ph:Math.random()*6.28, leaving:0 });
     }
@@ -488,6 +510,54 @@ ship: {
       if (b.x < -12 || b.x > G.W + 12 || b.y < -12 || b.y > G.H + 12){ s.ebullets.splice(i, 1); continue; }
       if (Math.hypot(G.px - b.x, G.py - b.y) < 11){ die(); return; }
     }
+    // --- the BOSS: hovering fortress, bullet-hell patterns ---
+    const B = s.boss;
+    if (B){
+      B.t += dt;
+      B.y += (96 - B.y) * Math.min(1, 1.6 * dt);
+      B.x = G.W/2 + Math.sin(B.t * 0.7) * G.W * 0.3;
+      // spiral barrage
+      B.fireA -= dt;
+      if (B.fireA <= 0 && B.y > 50){
+        B.fireA = 0.16; B.ang += 0.45;
+        for (let k = 0; k < 2; k++){
+          const a = B.ang + k * Math.PI;
+          s.ebullets.push({ x:B.x, y:B.y + 20, vx:Math.cos(a) * 190, vy:Math.sin(a) * 190 });
+        }
+      }
+      // aimed fan at the player
+      B.fireB -= dt;
+      if (B.fireB <= 0 && B.y > 50){
+        B.fireB = 2.4;
+        const base = Math.atan2(G.py - B.y, G.px - B.x);
+        for (let k = -2; k <= 2; k++){
+          const a = base + k * 0.18;
+          s.ebullets.push({ x:B.x, y:B.y + 20, vx:Math.cos(a) * 250, vy:Math.sin(a) * 250 });
+        }
+        Sfx.deny();
+      }
+      while (s.ebullets.length > 70) s.ebullets.shift();
+      // player bullets vs boss
+      for (let j = s.bullets.length - 1; j >= 0; j--){
+        const b = s.bullets[j];
+        if (Math.hypot(b.x - B.x, b.y - B.y) < 34){
+          s.bullets.splice(j, 1);
+          B.hp--;
+          burst(b.x, b.y, 5);
+          if (B.hp <= 0){
+            s.boss = null;
+            s.gauge = 0;                                  // gauge resets, counting starts over
+            burst(B.x, B.y, 46);
+            G.shake = 0.4;
+            Sfx.fanfare();
+            G.score += 500;
+            floater(B.x, B.y, "BOSS DOWN +500");
+            break;
+          }
+        }
+      }
+      if (s.boss && Math.hypot(G.px - B.x, G.py - B.y) < 40){ die(); return; }
+    }
   },
   draw(){
     const s = G.s;
@@ -521,6 +591,35 @@ ship: {
       ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, 6.29); ctx.fill();
       ctx.restore();
     }
+    // boss: a heavy fortress hull with a pulsing core
+    if (s.boss){
+      const B = s.boss;
+      ctx.save(); ctx.translate(B.x, B.y);
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      ctx.moveTo(-46, 10); ctx.lineTo(-30, -18); ctx.lineTo(-12, -8);
+      ctx.lineTo(0, -24); ctx.lineTo(12, -8); ctx.lineTo(30, -18); ctx.lineTo(46, 10);
+      ctx.lineTo(24, 18); ctx.lineTo(-24, 18);
+      ctx.closePath(); ctx.fill();
+      for (const sx of [-38, -20, 20, 38]){
+        ctx.beginPath(); ctx.moveTo(sx, -6); ctx.lineTo(sx, -22); ctx.lineTo(sx + 6, -6); ctx.fill();
+      }
+      const pulse = 6 + Math.sin(G.t * 8) * 2;
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(0, 2, pulse, 0, 6.29); ctx.fill();
+      ctx.fillStyle = INK;
+      ctx.beginPath(); ctx.arc(0, 2, pulse * 0.45, 0, 6.29); ctx.fill();
+      ctx.restore();
+      // HP bar
+      const bw = G.W * 0.6, bx = (G.W - bw) / 2, by = 30;
+      ctx.textAlign = "center";
+      ctx.font = "13px 'DotGothic16', monospace";
+      ctx.fillStyle = INK;
+      ctx.fillText("BOSS", G.W/2, by - 5);
+      ctx.strokeStyle = INK; ctx.lineWidth = 2;
+      ctx.strokeRect(bx, by, bw, 9);
+      ctx.fillRect(bx + 2, by + 2, (bw - 4) * Math.max(0, B.hp / B.maxhp), 5);
+    }
     ctx.fillStyle = INK;
     for (const b of s.bullets) ctx.fillRect(b.x - 2, b.y - 8, 4, 12);
     // enemy bullets: diamonds
@@ -538,15 +637,43 @@ ship: {
 };
 
 /* ---------- player drawings (LCD-ink style) ---------- */
-/* ribbon head: a little dart that tilts with velocity — it visibly flips
-   as you reverse direction, like the original SFCave ribbon */
+/* kite: a diamond that tilts with velocity, streaming two long tails
+   drawn from the position history — the classic ribbon, with a face */
 function drawRibbonHead(x, y, vx, vy){
+  const s = G.s, tr = s.trail;
+  // two long tails
+  for (let k = 0; k < 2; k++){
+    const side = k === 0 ? 1 : -1;
+    for (let i = 1; i < tr.length; i++){
+      const a = i / tr.length;                            // 0 = old, 1 = new
+      const sway = Math.sin(G.t * 7 + i * 0.4 + k * 2.6) * 7 * (1 - a);
+      const off = side * (5 + (1 - a) * 5);
+      const x0 = tr[i-1].x - G.worldX, y0 = tr[i-1].y + off + sway * 0.5;
+      const x1 = tr[i].x - G.worldX,   y1 = tr[i].y + off + sway * 0.5;
+      ctx.strokeStyle = INK;
+      ctx.globalAlpha = 0.12 + a * 0.5;
+      ctx.lineWidth = 1 + 3.5 * a;
+      ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+  // kite body
   const ang = Math.atan2(vy, Math.max(140, vx));
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
   ctx.fillStyle = INK;
-  ctx.beginPath(); ctx.ellipse(0, 0, 13, 6, 0, 0, 6.29); ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,.9)";
-  ctx.beginPath(); ctx.ellipse(-2.5, -1, 5, 2.4, 0, 0, 6.29); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(15, 0); ctx.lineTo(0, -10); ctx.lineTo(-12, 0); ctx.lineTo(0, 10);
+  ctx.closePath(); ctx.fill();
+  // spars
+  ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(13, 0); ctx.lineTo(-10, 0);
+  ctx.moveTo(0, -8.5); ctx.lineTo(0, 8.5);
+  ctx.stroke();
+  // knot
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(1, 0, 2.6, 0, 6.29); ctx.fill();
   ctx.restore();
 }
 function drawBird(x, y, vy, wing, sc){
@@ -641,7 +768,8 @@ function die(){
       spd:120 + Math.random() * 280, t:0, white:Math.random() < 0.3,
     });
   }
-  Sfx.shatter();
+  if (G.modeKey === "heli") Sfx.crash();   // the chopper gets its own fiery end
+  else Sfx.shatter();
   setTimeout(()=>Sfx.gameover(), 120);
 }
 function gameOver(){
@@ -741,18 +869,29 @@ function draw(){
   ctx.restore();
   if (G.phase === "countdown" && !G.dead) drawCountdown();
 }
-/* big 3·2·1 over the frozen opening frame */
+/* big 3·2·1 over the frozen opening frame — paper halo keeps it
+   readable even when a wall sits right behind the digit */
 function drawCountdown(){
   const n = Math.max(1, Math.ceil(G.countT / 0.8));
   ctx.save();
   ctx.textAlign = "center";
-  ctx.fillStyle = INK;
-  ctx.globalAlpha = 0.94;
   ctx.font = "84px 'DSEG7-Classic', monospace";
+  ctx.lineWidth = 10; ctx.strokeStyle = PAPER;
+  ctx.globalAlpha = 0.94;
+  ctx.strokeText(String(n), G.W / 2, G.H / 2 - 6);
+  ctx.fillStyle = INK;
   ctx.fillText(String(n), G.W / 2, G.H / 2 - 6);
   ctx.font = "17px 'DotGothic16', monospace";
   ctx.globalAlpha = 0.8;
+  const sub = (G.mode && G.mode.sub) || "";
+  ctx.lineWidth = 5; ctx.strokeStyle = PAPER;
+  ctx.strokeText("GET READY", G.W / 2, G.H / 2 + 36);
   ctx.fillText("GET READY", G.W / 2, G.H / 2 + 36);
+  if (sub){
+    ctx.font = "15px 'DotGothic16', monospace";
+    ctx.strokeText(sub, G.W / 2, G.H / 2 + 60);
+    ctx.fillText(sub, G.W / 2, G.H / 2 + 60);
+  }
   ctx.restore();
 }
 
@@ -917,7 +1056,7 @@ function bindUI(){
   document.querySelectorAll(".mode-btn").forEach(b =>
     b.addEventListener("click", ()=>{ Sfx.unlock(); start(b.dataset.mode); }));
 
-  $("btn-immersive").addEventListener("click", enterImmersive);
+  $("btn-immersive").addEventListener("click", toggleImmersive);
   $("btn-gfull").addEventListener("click", toggleImmersive);
   $("btn-gpause").addEventListener("click", togglePause);
   $("btn-how").addEventListener("click", ()=>{ Sfx.click(); show("screen-help"); });

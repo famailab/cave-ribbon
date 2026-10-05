@@ -75,6 +75,15 @@ const Sfx = (() => {
       blip({ f0: 1700, f1: 2500, type: "square", dur: 0.13, vol: 0.24 });
       blip({ f0: 2100, f1: 2950, type: "square", dur: 0.24, vol: 0.24, delay: 0.12 });
     },
+    /* helicopter crash: tumbling engine + impact noise, distinct from the generic shatter */
+    crash(){
+      blip({ f0: 320, f1: 55, type: "sawtooth", dur: 0.55, vol: 0.32 });
+      blip({ f0: 160, f1: 40, type: "square", dur: 0.5, vol: 0.2, delay: 0.08 });
+      noise({ dur: 0.35, vol: 0.34, hp: 300 });
+      noise({ dur: 0.2, vol: 0.2, delay: 0.3, hp: 900 });
+    },
+    /* boss warning alarm */
+    alarm(){ [880, 660, 880].forEach((f, i) => blip({ f0: f, type: "square", dur: 0.12, vol: 0.24, delay: i * 0.14 })); },
     /* longer original combo-celebration jingle for chain x7 (~2.2s): bouncy major-key
        call & response over a driving drum track (synthesized kick/snare/hats) */
     combo(){

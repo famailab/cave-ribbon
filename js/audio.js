@@ -69,6 +69,12 @@ const Sfx = (() => {
     gameover(){ [392, 330, 262, 196].forEach((f, i) => blip({ f0: f, type: "triangle", dur: 0.18, vol: 0.28, delay: i * 0.16 })); },
     fanfare(){ [523, 659, 784].forEach((f, i) => blip({ f0: f, type: "square", dur: 0.09, vol: 0.2, delay: i * 0.08 })); },
     bonus()  { [1047, 1319].forEach((f, i) => blip({ f0: f, type: "triangle", dur: 0.08, vol: 0.22, delay: i * 0.06 })); },
+    /* countdown: low beeps for 3·2·1, then a pea-whistle to start */
+    countBeep(){ blip({ f0: 660, type: "square", dur: 0.09, vol: 0.22 }); },
+    whistle(){
+      blip({ f0: 1700, f1: 2500, type: "square", dur: 0.13, vol: 0.24 });
+      blip({ f0: 2100, f1: 2950, type: "square", dur: 0.24, vol: 0.24, delay: 0.12 });
+    },
     /* longer original combo-celebration jingle for chain x7 (~2.2s): bouncy major-key
        call & response over a driving drum track (synthesized kick/snare/hats) */
     combo(){
@@ -100,5 +106,35 @@ const Sfx = (() => {
     peekSfx(){ [1047, 1319, 1568].forEach((f, i) => blip({ f0: f, type: "sine", dur: 0.12, vol: 0.18, delay: i * 0.07 })); },
     cycleSfx(){ [660, 660, 880].forEach((f, i) => blip({ f0: f, type: "square", dur: 0.05, vol: 0.16, delay: i * 0.07 })); },
     unifySfx(){ [196, 247, 294].forEach((f) => blip({ f0: f, type: "square", dur: 0.22, vol: 0.16 })); },
+    /* ---- helicopter engine rumble: persistent detuned low oscillators ---- */
+    _eng:null,
+    engineStart(){
+      if (muted || this._eng) return;
+      try {
+        const c = ac();
+        const g = c.createGain();
+        g.gain.value = 0.0001;
+        g.gain.setTargetAtTime(0.05, c.currentTime, 0.5);
+        const o1 = c.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = 52;
+        const o2 = c.createOscillator(); o2.type = "square";   o2.frequency.value = 104;
+        const g2 = c.createGain(); g2.gain.value = 0.35;
+        const lfo = c.createOscillator(); lfo.frequency.value = 7;   // rotor wobble
+        const lg = c.createGain(); lg.gain.value = 7;
+        lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
+        o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(master);
+        o1.start(); o2.start(); lfo.start();
+        this._eng = { g, o1, o2, lfo };
+      } catch(e){}
+    },
+    engineStop(){
+      const e = this._eng;
+      if (!e) return;
+      this._eng = null;
+      try {
+        const c = ac();
+        e.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.12);
+        setTimeout(()=>{ try { e.o1.stop(); e.o2.stop(); e.lfo.stop(); } catch(_){} }, 500);
+      } catch(_){}
+    },
   };
 })();

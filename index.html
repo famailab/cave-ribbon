@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Cave Ribbon — Retro Calculator Arcade</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='10' fill='%2322252a' stroke='%2314161a' stroke-width='4'/%3E%3Cpath d='M14 40 Q24 28 32 34 T50 24' stroke='%23f4f1e6' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="page">
+ <div class="stage" id="stage">
+  <div class="calc" id="calc">
+    <!-- top: brand + solar -->
+    <div class="calc-top">
+      <div class="brand">
+        <svg class="mascot" viewBox="0 0 64 64" aria-hidden="true">
+          <ellipse cx="32" cy="16" rx="24" ry="7" fill="#8a5a2b"/>
+          <path d="M18 16c0-8 6-13 14-13s14 5 14 13z" fill="#a06a35"/>
+          <rect x="18" y="12" width="28" height="5" rx="2" fill="#5c3a1a"/>
+          <rect x="20" y="22" width="24" height="30" rx="5" fill="#e8e4d8" stroke="#3a3d42" stroke-width="2.5"/>
+          <rect x="25" y="27" width="14" height="9" rx="2" fill="#bcd9c2" stroke="#3a3d42" stroke-width="2"/>
+          <circle cx="26" cy="44" r="2.4" fill="#3a3d42"/><circle cx="32" cy="44" r="2.4" fill="#3a3d42"/><circle cx="38" cy="44" r="2.4" fill="#3a3d42"/>
+        </svg>
+        <span class="brand-name" id="brand-name">CaLBoY</span>
+      </div>
+      <div class="solar" aria-hidden="true"></div>
+    </div>
+
+    <!-- LCD -->
+    <div class="lcd-bezel">
+      <div class="lcd" id="lcd">
+        <div class="scanlines" aria-hidden="true"></div>
+
+        <!-- TITLE -->
+        <section class="screen" id="screen-title">
+          <div class="title-logo">
+            <div class="title-ribbon">CAVE</div>
+            <div class="title-ribbon2">RIBBON</div>
+          </div>
+          <div class="title-sub">ONE-BUTTON ARCADE · 4 MODES</div>
+          <div class="mode-grid">
+            <button class="mode-btn" data-mode="cave"><b>CAVE</b><span>ribbon · hold to rise</span></button>
+            <button class="mode-btn" data-mode="flappy"><b>FLAPPY</b><span>tap to flap</span></button>
+            <button class="mode-btn" data-mode="heli"><b>HELI</b><span>hold = thrust</span></button>
+            <button class="mode-btn" data-mode="ship"><b>SHIP</b><span>drag to steer</span></button>
+          </div>
+          <div class="title-btns">
+            <button class="lcd-btn primary" id="btn-immersive">⛶ IMMERSIVE</button>
+            <button class="lcd-btn" id="btn-how">HOW TO PLAY</button>
+            <button class="lcd-btn" id="btn-settings">SETTINGS</button>
+          </div>
+          <div class="title-scores">
+            <div class="ts-head">— BEST SCORES —</div>
+            <ol id="title-best"></ol>
+          </div>
+          <div class="title-foot">v1.0 · a retro calculator arcade</div>
+        </section>
+
+        <!-- GAME -->
+        <section class="screen hidden" id="screen-game">
+          <div class="ghud">
+            <div class="ghud-cell"><label>SCORE</label><div class="seg" id="hud-score">0</div></div>
+            <div class="ghud-mid">
+              <div class="ghud-mode" id="hud-mode">CAVE</div>
+              <div class="ghud-best" id="hud-best">BEST 0</div>
+            </div>
+            <div class="ghud-btns">
+              <button class="lcd-btn small" id="btn-gpause" title="Pause (P)">&#10074;&#10074;</button>
+              <button class="lcd-btn small" id="btn-gfull" title="Immersive mode">&#9974;</button>
+            </div>
+          </div>
+          <div class="canvas-wrap" id="canvas-wrap">
+            <canvas id="game-canvas"></canvas>
+            <div class="scanlines" aria-hidden="true"></div>
+            <div class="toast hidden" id="toast"></div>
+          </div>
+        </section>
+
+        <!-- GAME OVER -->
+        <section class="screen hidden" id="screen-over">
+          <div class="over-mode" id="over-mode">CAVE</div>
+          <div class="over-title">GAME OVER</div>
+          <div class="newbest hidden" id="newbest">★ NEW BEST ★</div>
+          <div class="over-score"><label>SCORE</label><div class="seg huge" id="over-score">0</div></div>
+          <div class="over-stats">
+            <div><label>BEST</label><div class="seg" id="over-best">0</div></div>
+            <div><label>TIME</label><div class="seg" id="over-time">0:00</div></div>
+          </div>
+          <div class="title-btns">
+            <button class="lcd-btn primary" id="btn-again">PLAY AGAIN</button>
+            <button class="lcd-btn" id="btn-modes">CHANGE MODE</button>
+            <button class="lcd-btn" id="btn-menu2">MENU</button>
+          </div>
+        </section>
+
+        <!-- HELP -->
+        <section class="screen hidden" id="screen-help">
+          <div class="help-title">HOW TO PLAY</div>
+          <ul class="help-list">
+            <li><b>CAVE</b> — the classic ribbon. <b>Hold</b> anywhere (or Space) to rise, <b>release</b> to fall. Thread the cave, don't touch the walls.</li>
+            <li><b>FLAPPY</b> — <b>tap</b> to flap your wings and slip through the pipes.</li>
+            <li><b>HELI</b> — <b>hold</b> for thrust, release to drop. Dodge the floating blocks.</li>
+            <li><b>SHIP</b> — <b>drag</b> to steer your starship. Cannons fire on their own — blast every asteroid!</li>
+            <li><b>⛶ Immersive</b> — pure-black OLED mode. The calculator melts away, only the game remains.</li>
+            <li>Keys: <b>Space / ↑</b> press · <b>P</b> pause · <b>M</b> mute · <b>Esc</b> exit immersive.</li>
+          </ul>
+          <div class="title-btns"><button class="lcd-btn primary" id="btn-help-back">GOT IT</button></div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section class="screen hidden" id="screen-settings">
+          <div class="help-title">SETTINGS</div>
+          <div class="set-group">
+            <div class="set-label">COLOR THEME</div>
+            <div class="swatches" id="theme-swatches"></div>
+          </div>
+          <div class="set-group">
+            <div class="set-label">SOUND</div>
+            <button class="lcd-btn small" id="btn-sound-toggle">SOUND: ON</button>
+          </div>
+          <div class="set-group">
+            <div class="set-label">BRAND NAME</div>
+            <div class="brand-row">
+              <input id="brand-input" maxlength="14" placeholder="CaLBoY" autocomplete="off">
+              <button class="lcd-btn small" id="brand-reset">RESET</button>
+            </div>
+          </div>
+          <div class="title-btns"><button class="lcd-btn primary" id="btn-set-back">BACK</button></div>
+        </section>
+
+        <!-- overlays -->
+        <div class="pauseveil hidden" id="pauseveil">
+          <div class="pause-box">
+            <div class="pause-title">PAUSED</div>
+            <div class="title-btns">
+              <button class="lcd-btn primary" id="btn-resume">RESUME</button>
+              <button class="lcd-btn" id="btn-restart">RESTART</button>
+              <button class="lcd-btn" id="btn-quit">QUIT TO MENU</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bezel-label">CAVE RIBBON</div>
+    </div>
+
+    <!-- physical buttons -->
+    <div class="pad">
+      <button class="key" id="key-home" aria-label="Home" title="Menu">
+        <svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v9h-4v-6H10v6H6v-9H3z" fill="currentColor"/></svg>
+      </button>
+      <button class="key" id="key-pause" aria-label="Pause" title="Pause (P)">
+        <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+      </button>
+      <button class="key" id="key-sound" aria-label="Sound" title="Mute (M)">
+        <svg viewBox="0 0 24 24" id="ico-snd-on"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8a5 5 0 010 8M18.5 5.5a9 9 0 010 13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 24 24" id="ico-snd-off" class="hidden"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="key" id="key-help" aria-label="Help" title="How to play (H)">
+        <svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 1 5.2 3.1c-1.2.7-1.7 1.3-1.7 2.9" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/><rect x="10" y="16" width="4" height="4" rx="1" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="kbd-hint">hold <b>Space</b> = thrust · tap = flap · drag = steer ship · <b>P</b> pause · <b>M</b> mute</div>
+  </div>
+ </div>
+</div>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

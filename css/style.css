@@ -1,0 +1,344 @@
+/* ============ CAVE RIBBON — retro calculator arcade ============ */
+@font-face{
+  font-family:"DSEG7-Classic";
+  src:url("../fonts/DSEG7Classic-Bold.woff2") format("woff2");
+  font-weight:bold; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"DotGothic16";
+  src:url("../fonts/DotGothic16-Regular.woff2") format("woff2");
+  font-weight:normal; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Chakra Petch";
+  src:url("../fonts/ChakraPetch-Bold.woff2") format("woff2");
+  font-weight:bold; font-style:normal; font-display:swap;
+}
+:root{
+  --calc1:#9aa0a8; --calc2:#7e848c; --calc3:#585d64; --calc-border:#4a4e55;
+  --brand:#3f444b;
+  --lcd-bg1:#d3ead9; --lcd-bg2:#bcd9c2; --ink:#2b3a2e;
+  --accent1:#4f7a5c; --accent2:#3a5c44; --accent-border:#2c4634;
+}
+[data-theme="ocean"]{
+  --calc1:#5a7a9c; --calc2:#446084; --calc3:#2c425c; --calc-border:#1e2f42;
+  --brand:#d7e3f0;
+  --lcd-bg1:#d2e9ec; --lcd-bg2:#b2d6da; --ink:#1e3a42;
+  --accent1:#3f8a7d; --accent2:#2c665d; --accent-border:#1f4a44;
+}
+[data-theme="sunset"]{
+  --calc1:#b08a5e; --calc2:#93703f; --calc3:#6b5233; --calc-border:#4f3d26;
+  --brand:#f2e2c4;
+  --lcd-bg1:#f4e8cb; --lcd-bg2:#e6d3a8; --ink:#4a3423;
+  --accent1:#b06a3c; --accent2:#7e4a2a; --accent-border:#5c331e;
+}
+[data-theme="gameboy"]{
+  --calc1:#a8a898; --calc2:#8c8c7e; --calc3:#6b6b5e; --calc-border:#55554a;
+  --brand:#2a3a7c;
+  --lcd-bg1:#a8bd6e; --lcd-bg2:#8b9f59; --ink:#2a3318;
+  --accent1:#8a3040; --accent2:#64222e; --accent-border:#4a1822;
+}
+[data-theme="sakura"]{
+  --calc1:#cfa9b6; --calc2:#b28a98; --calc3:#86636f; --calc-border:#664c56;
+  --brand:#f7e8ee;
+  --lcd-bg1:#f6e2e9; --lcd-bg2:#e9c7d4; --ink:#5c2f3f;
+  --accent1:#b46a86; --accent2:#875069; --accent-border:#653c4f;
+}
+
+/* ---------- touch hardening: the page must NEVER scroll/drag/zoom mid-game ---------- */
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{
+  height:100%;
+  touch-action:none;            /* kills pull-to-refresh, double-tap zoom, pan gestures */
+  overscroll-behavior:none;     /* no scroll chaining past the page edge */
+}
+body{
+  margin:0; background:#23262b;
+  background-image:radial-gradient(120% 90% at 50% 0%, #31353c 0%, #23262b 60%, #191b1f 100%);
+  font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;
+  color:#e8e4d8; display:flex; align-items:center; justify-content:center;
+  min-height:100%; padding:12px;
+  user-select:none; -webkit-user-select:none;
+  -webkit-touch-callout:none;   /* no iOS long-press menu */
+  overflow:hidden;               /* the calculator is the whole app — nothing to scroll */
+  position:fixed; inset:0; width:100%; /* iOS Safari: stops rubber-banding dead */
+}
+.hidden{display:none !important;}
+.page{width:100%; min-height:100%; display:flex; align-items:center; justify-content:center;}
+.stage{position:relative; flex:none;}
+
+/* ---------- calculator body (fixed 430px design, scaled by fit()) ---------- */
+.calc{
+  width:430px; flex:none; transform-origin:top left;
+  background:linear-gradient(165deg,var(--calc1) 0%,var(--calc2) 45%,var(--calc3) 100%);
+  border-radius:30px; padding:18px 16px 14px;
+  box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 2px 2px rgba(255,255,255,.35), inset 0 -3px 6px rgba(0,0,0,.25);
+  border:1px solid var(--calc-border);
+}
+.calc-top{display:flex; align-items:center; justify-content:space-between; padding:2px 8px 12px;}
+.brand{display:flex; align-items:center; gap:8px;}
+.mascot{width:44px; height:44px; filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));}
+.brand-name{
+  font-family:"Chakra Petch","Avenir Next","Segoe UI",sans-serif;
+  font-size:30px; font-weight:bold; letter-spacing:3px; color:var(--brand);
+  text-shadow:0 1px 0 rgba(255,255,255,.35), 0 -1px 1px rgba(0,0,0,.25);
+}
+.solar{
+  width:118px; height:44px; border-radius:8px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 2px, transparent 2px 29px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 2px, transparent 2px 21px),
+    linear-gradient(160deg,#4a3428,#2c1f18);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.25);
+  border:1px solid #241a14;
+}
+
+/* ---------- LCD ---------- */
+.lcd-bezel{
+  background:linear-gradient(180deg,#26282c,#141518);
+  border-radius:20px; padding:12px 12px 8px;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.2);
+}
+.lcd{
+  position:relative; border-radius:10px; overflow:hidden;
+  background:linear-gradient(175deg,var(--lcd-bg1),var(--lcd-bg2));
+  box-shadow:inset 0 3px 14px rgba(43,58,46,.35);
+  min-height:560px; display:flex; flex-direction:column;
+}
+.scanlines{
+  position:absolute; inset:0; pointer-events:none; z-index:5; opacity:.5;
+  background:repeating-linear-gradient(0deg, rgba(43,58,46,.05) 0 1px, transparent 1px 3px);
+}
+.bezel-label{
+  text-align:right; font-size:13px; letter-spacing:4px; color:#c9c4b4;
+  padding:6px 6px 2px; font-style:italic; text-shadow:0 1px 1px rgba(0,0,0,.6);
+}
+.screen{position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; padding:10px 12px 14px; flex:1;}
+
+/* ---------- shared widgets ---------- */
+.title-btns{display:flex; flex-direction:column; gap:10px; margin:14px 0; width:230px;}
+.lcd-btn{
+  font-family:inherit; font-weight:700; font-size:15px; letter-spacing:2px;
+  color:#f2efe4; background:linear-gradient(180deg,#5a6068,#43484f);
+  border:1px solid #33373d; border-radius:10px; padding:11px 0; cursor:pointer;
+  box-shadow:0 3px 0 #2c2f34, 0 5px 8px rgba(0,0,0,.25);
+  transition:transform .05s, box-shadow .05s;
+  touch-action:manipulation;
+}
+.lcd-btn:active{transform:translateY(3px); box-shadow:0 0 0 #2c2f34;}
+.lcd-btn.primary{background:linear-gradient(180deg,var(--accent1),var(--accent2)); border-color:var(--accent-border); box-shadow:0 3px 0 var(--accent-border), 0 5px 8px rgba(0,0,0,.25);}
+.lcd-btn.primary:active{box-shadow:0 0 0 var(--accent-border);}
+.lcd-btn.small{font-size:12px; padding:8px 14px; width:auto;}
+.seg{
+  font-family:"DSEG7-Classic","Courier New",monospace; font-weight:bold;
+  font-size:24px; color:var(--ink); text-shadow:0 0 6px rgba(43,58,46,.25);
+  font-variant-numeric:tabular-nums; min-width:60px; text-align:center;
+}
+.seg.big{font-size:40px;}
+.seg.huge{font-size:56px;}
+.toast{
+  position:absolute; top:44%; left:50%; transform:translate(-50%,-50%); z-index:10;
+  background:rgba(20,22,25,.9); color:#ffd97a; font-weight:800; letter-spacing:2px;
+  font-size:19px; padding:12px 22px; border-radius:12px; pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);
+  max-width:92%; text-align:center; line-height:1.4;
+}
+
+/* ---------- title ---------- */
+.title-logo{margin:10px 0 2px; text-align:center; color:var(--ink);}
+.title-ribbon{
+  font-family:"DSEG7-Classic","Courier New",monospace; font-weight:bold;
+  font-size:44px; letter-spacing:2px; text-shadow:2px 2px 0 rgba(43,58,46,.18);
+}
+.title-ribbon2{
+  font-family:"DSEG7-Classic","Courier New",monospace; font-weight:bold;
+  font-size:24px; letter-spacing:8px; padding-left:8px; margin-top:1px;
+  text-shadow:2px 2px 0 rgba(43,58,46,.18);
+}
+.title-sub{font-size:11px; letter-spacing:3px; font-weight:700; color:var(--ink); opacity:.65; margin:2px 0 10px;}
+.mode-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:8px; width:280px; margin-bottom:2px;
+}
+.mode-btn{
+  font-family:inherit; cursor:pointer; border-radius:12px; padding:8px 6px 7px;
+  background:linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.08));
+  border:2px solid rgba(0,0,0,.28); color:var(--ink);
+  display:flex; flex-direction:column; gap:2px; align-items:center;
+  box-shadow:0 3px 0 rgba(0,0,0,.25);
+  transition:transform .05s, box-shadow .05s;
+  touch-action:manipulation;
+}
+.mode-btn:active{transform:translateY(3px); box-shadow:0 0 0 rgba(0,0,0,.25);}
+.mode-btn b{font-size:17px; letter-spacing:2px;}
+.mode-btn span{font-family:"DotGothic16",monospace; font-size:14px; opacity:.75;}
+.title-scores{width:280px; color:var(--ink); margin-top:2px;}
+.ts-head{text-align:center; font-size:12px; letter-spacing:3px; font-weight:700; margin-bottom:6px;}
+.title-scores ol{margin:0; padding:0 0 0 26px; font-size:14px; font-weight:600;}
+.title-scores li{padding:1px 0; font-variant-numeric:tabular-nums;}
+.title-foot{margin-top:auto; padding-top:8px; font-size:11px; letter-spacing:2px; color:#5a6a5e;}
+
+/* ---------- game screen ---------- */
+#screen-game{padding:8px 10px 10px; align-items:stretch;}
+.ghud{display:flex; align-items:center; justify-content:space-between; padding:0 2px 8px; gap:8px;}
+.ghud-cell{display:flex; flex-direction:column; align-items:flex-start; gap:1px;}
+.ghud-cell label{font-size:10px; letter-spacing:3px; font-weight:700; color:var(--ink); opacity:.7;}
+.ghud-mid{text-align:center;}
+.ghud-mode{font-family:"Chakra Petch",sans-serif; font-weight:bold; font-size:16px; letter-spacing:3px; color:var(--ink);}
+.ghud-best{font-family:"DotGothic16",monospace; font-size:15px; color:var(--ink); opacity:.65;}
+.ghud-btns{display:flex; gap:8px;}
+.canvas-wrap{
+  position:relative; flex:1; min-height:0; border-radius:8px; overflow:hidden;
+  box-shadow:0 0 0 2px rgba(0,0,0,.28), inset 0 2px 8px rgba(43,58,46,.12);
+  background:
+    linear-gradient(rgba(43,58,46,.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(43,58,46,.16) 1px, transparent 1px);
+  background-size:28px 28px;
+  touch-action:none; /* the canvas owns every touch — the page never moves */
+}
+#game-canvas{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none;}
+
+/* ---------- game over ---------- */
+.over-mode{
+  font-family:"Chakra Petch",sans-serif; font-weight:bold; font-size:14px;
+  letter-spacing:5px; color:var(--ink); opacity:.7; margin-top:18px;
+}
+.over-title{
+  font-family:"DSEG7-Classic",monospace; font-weight:bold; font-size:32px;
+  color:var(--ink); margin:8px 0 4px; letter-spacing:2px;
+}
+.newbest{color:#7a2f1d; font-weight:800; letter-spacing:3px; font-size:15px; margin:4px 0; animation:blink 1s steps(2) infinite;}
+@keyframes blink{50%{opacity:.35;}}
+.over-score{margin:8px 0; text-align:center;}
+.over-score label, .over-stats label{font-size:11px; letter-spacing:3px; font-weight:700; color:var(--ink); opacity:.7;}
+.over-stats{display:flex; gap:34px; margin:6px 0 4px; text-align:center;}
+
+/* ---------- help / settings ---------- */
+.help-title{
+  font-family:"DSEG7-Classic",monospace; font-weight:bold; font-size:24px;
+  color:var(--ink); margin:14px 0 10px; letter-spacing:2px;
+}
+.help-list{
+  margin:0; padding:0 6px 0 20px; color:var(--ink); font-size:14px; line-height:1.5;
+  max-width:330px;
+}
+.help-list li{margin-bottom:8px;}
+.help-list b{color:#2f4a35;}
+.set-group{width:100%; max-width:330px; margin:10px 0 4px;}
+.set-label{
+  font-size:12px; letter-spacing:3px; font-weight:800; color:var(--ink);
+  margin-bottom:8px; opacity:.75;
+}
+.swatches{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; padding-bottom:16px;}
+.swatch{
+  width:52px; height:52px; border-radius:12px; cursor:pointer; padding:0;
+  border:3px solid rgba(0,0,0,.25); position:relative; flex:none;
+  box-shadow:0 2px 5px rgba(0,0,0,.25);
+}
+.swatch.sel{border-color:var(--ink); box-shadow:0 0 0 2px var(--lcd-bg1), 0 0 12px rgba(0,0,0,.35);}
+.swatch .sw-name{
+  position:absolute; left:50%; bottom:-19px; transform:translateX(-50%);
+  font-size:9px; letter-spacing:1px; font-weight:700; color:var(--ink); white-space:nowrap;
+}
+.brand-row{display:flex; gap:8px; align-items:center;}
+#brand-input{
+  flex:1; min-width:0; font:inherit; font-weight:700; letter-spacing:1px;
+  color:var(--ink); background:rgba(255,255,255,.35);
+  border:2px solid rgba(0,0,0,.2); border-radius:10px; padding:9px 12px;
+  text-transform:uppercase;
+}
+#brand-input:focus{outline:2px solid var(--ink);}
+
+/* ---------- overlays ---------- */
+.pauseveil{
+  position:absolute; inset:0; z-index:9; background:rgba(35,38,43,.72);
+  display:flex; align-items:center; justify-content:center; backdrop-filter:blur(2px);
+}
+.pause-box{
+  background:linear-gradient(175deg,var(--lcd-bg1),var(--lcd-bg2));
+  border-radius:14px; padding:22px; width:250px;
+  box-shadow:0 12px 30px rgba(0,0,0,.5);
+}
+.pause-title{
+  font-family:"DSEG7-Classic",monospace; font-weight:bold; text-align:center;
+  font-size:26px; color:var(--ink); margin-bottom:12px; letter-spacing:2px;
+}
+.pause-box .title-btns{width:100%; margin:0;}
+
+/* ---------- physical pad ---------- */
+.pad{display:flex; justify-content:center; gap:22px; padding:14px 0 6px;}
+.key{
+  width:62px; height:62px; border-radius:50%; cursor:pointer;
+  background:radial-gradient(circle at 35% 30%, #4a4f56, #33373d 75%);
+  border:2px solid #26292e; color:#d8d5cc;
+  box-shadow:0 5px 0 #1e2024, 0 8px 14px rgba(0,0,0,.4), inset 0 2px 3px rgba(255,255,255,.15);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .06s, box-shadow .06s;
+  touch-action:manipulation;
+}
+.key:active{transform:translateY(4px); box-shadow:0 1px 0 #1e2024, inset 0 2px 3px rgba(255,255,255,.15);}
+.key svg{width:28px; height:28px;}
+.key.off{color:#6a6e75;}
+.kbd-hint{
+  text-align:center; font-size:11px; letter-spacing:1px; color:#3f444b;
+  text-shadow:0 1px 0 rgba(255,255,255,.25); padding:2px 0 4px; display:none;
+}
+@media (hover:hover) and (pointer:fine){ .kbd-hint{display:block;} }
+
+/* ================= IMMERSIVE MODE =================
+   Pure-black OLED stage: the calculator melts away, only the game remains.
+   Works even where the Fullscreen API is unavailable (iPhone) — the CSS
+   alone delivers the black stage. */
+body.immersive{
+  padding:0; background:#000; background-image:none;
+  position:fixed; inset:0;
+}
+body.immersive{
+  --lcd-bg1:#000000; --lcd-bg2:#000000; --ink:#f2f2f2;
+}
+body.immersive .page{min-height:100dvh;}
+body.immersive .stage{width:100vw !important; height:100dvh !important;}
+body.immersive .calc{
+  width:100vw; transform:none !important; border-radius:0; padding:0;
+  background:none; border:none; box-shadow:none;
+}
+body.immersive .calc-top,
+body.immersive .pad,
+body.immersive .bezel-label,
+body.immersive .kbd-hint{display:none !important;}
+body.immersive .lcd-bezel{
+  background:none; border-radius:0; padding:0; box-shadow:none; height:100dvh;
+  display:flex; flex-direction:column;
+}
+body.immersive .lcd{
+  border-radius:0; box-shadow:none; min-height:100dvh; flex:1;
+  background:#000;
+}
+body.immersive .scanlines{opacity:.18;}
+body.immersive .canvas-wrap{
+  box-shadow:none;
+  background:
+    linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
+  background-size:28px 28px;
+}
+body.immersive .seg{text-shadow:0 0 10px rgba(255,255,255,.35);}
+body.immersive .title-logo,
+body.immersive .title-sub,
+body.immersive .ghud-mode,
+body.immersive .ghud-best,
+body.immersive .ghud-cell label,
+body.immersive .title-scores,
+body.immersive .over-mode,
+body.immersive .over-title,
+body.immersive .help-title,
+body.immersive .help-list,
+body.immersive .set-label{color:#f2f2f2;}
+body.immersive .title-foot{color:#8a8a8a;}
+body.immersive .newbest{color:#ffd97a;}
+body.immersive .help-list b{color:#fff;}
+body.immersive .mode-btn{color:#f2f2f2; border-color:rgba(255,255,255,.4); background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.04));}
+body.immersive .pause-box{background:#0a0a0a; border:1px solid rgba(255,255,255,.25);}
+body.immersive .pause-title{color:#f2f2f2;}
+body.immersive #brand-input{color:#f2f2f2; background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.3);}
+body.immersive .swatch .sw-name{color:#f2f2f2;}
+/* in immersive, the corner buttons live inside the HUD row already — nothing extra needed */

@@ -98,15 +98,29 @@
         <!-- HELP -->
         <section class="screen hidden" id="screen-help">
           <div class="help-title">HOW TO PLAY</div>
-          <ul class="help-list">
-            <li>Every run starts with a <b>3·2·1 countdown</b> — a whistle means GO. Pre-hold during the countdown!</li>
-            <li><b>CAVE</b> — the classic ribbon. <b>Hold</b> anywhere (or Space) to rise, <b>release</b> to fall. Thread the cave, don't touch the walls. The cave <b>tightens</b> the longer you survive.</li>
-            <li><b>FLAPPY</b> — <b>tap</b> to flap your wings and slip through the pipes.</li>
-            <li><b>HELI</b> — <b>hold</b> for thrust, release to drop. Dodge the floating blocks — and the <b>birds</b>!</li>
-            <li><b>SHIP</b> — <b>drag</b> to steer your starship. Cannons fire on their own. Crack <b>glowing energy rocks</b> for weapon cores: every core speeds your bullets, 3 cores → <b>GUN LV2</b>, 6 → <b>LV3</b>. Watch out: <b>drones shoot back</b>! Let too many rocks slip past and a <b>BOSS</b> warps in (epic music included) — the higher your score, the tougher it is. Sink it for <b>+500</b> and 3 bonus cores, but every boss you kill turns up the heat: faster rocks, meaner drones.</li>
-            <li><b>⛶ Immersive</b> — pure-black OLED mode. The calculator melts away, only the game remains.</li>
+          <ul class="help-list help-page" data-page="0">
+            <li>Every run starts with a <b>3·2·1 countdown</b> — a whistle means GO. You can pre-hold during the countdown!</li>
             <li>Keys: <b>Space / ↑</b> press · <b>P</b> pause · <b>M</b> mute · <b>Esc</b> exit immersive.</li>
           </ul>
+          <ul class="help-list help-page hidden" data-page="1">
+            <li><b>CAVE</b> — the classic ribbon. <b>Hold</b> to rise, <b>release</b> to fall. Thread the cave as it tightens.</li>
+            <li><b>FLAPPY</b> — <b>tap</b> to flap through the pipes.</li>
+            <li><b>HELI</b> — <b>hold</b> for thrust, release to drop. Dodge the blocks — and the <b>birds</b>!</li>
+          </ul>
+          <ul class="help-list help-page hidden" data-page="2">
+            <li><b>SHIP</b> — <b>drag</b> to steer; cannons fire on their own.</li>
+            <li>Crack <b>glowing energy rocks</b> for cores: faster bullets, 3 cores → <b>GUN LV2</b>, 6 → <b>LV3</b>.</li>
+            <li><b>Drones shoot back!</b> Miss too many rocks and a <b>BOSS</b> warps in — deadlier at high scores. Sink it: <b>+500</b>, 3 bonus cores, and the heat turns up.</li>
+          </ul>
+          <ul class="help-list help-page hidden" data-page="3">
+            <li><b>⛶ Immersive</b> — pure-black OLED mode. Pick your ink color in <b>SETTINGS → IMMERSIVE INK</b>.</li>
+            <li>Boss fights come with their own soundtrack. Good luck, pilot.</li>
+          </ul>
+          <div class="help-pager">
+            <button class="lcd-btn small" id="help-prev">◀</button>
+            <div class="help-dots" id="help-dots"></div>
+            <button class="lcd-btn small" id="help-next">▶</button>
+          </div>
           <div class="title-btns"><button class="lcd-btn primary" id="btn-help-back">GOT IT</button></div>
         </section>
 
@@ -118,8 +132,8 @@
             <div class="swatches" id="theme-swatches"></div>
           </div>
           <div class="set-group">
-            <div class="set-label">SOUND</div>
-            <button class="lcd-btn small" id="btn-sound-toggle">SOUND: ON</button>
+            <div class="set-label">IMMERSIVE INK</div>
+            <div class="swatches" id="ink-swatches"></div>
           </div>
           <div class="set-group">
             <div class="set-label">BRAND NAME</div>

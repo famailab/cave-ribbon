@@ -17,7 +17,7 @@ const THEMES = [
   { id:"gameboy", name:"GAMEBOY" },
   { id:"sakura",  name:"SAKURA"  },
 ];
-let settings = Object.assign({ theme:"", muted:false, brand:"" }, store.get(LS.settings, {}));
+let settings = Object.assign({ theme:"", muted:false, brand:"", immInk:"#f2f2f2" }, store.get(LS.settings, {}));
 let bests = Object.assign({ cave:0, flappy:0, heli:0, ship:0 }, store.get(LS.best, {}));
 
 let INK = "#2b3a2e";
@@ -36,6 +36,21 @@ function applyTheme(id){
   document.querySelectorAll("#theme-swatches .swatch").forEach(s =>
     s.classList.toggle("sel", s.dataset.id === id));
 }
+/* immersive ink: preset foreground colors for OLED mode, independent of themes */
+const IMMINKS = [
+  { id:"#f2f2f2", name:"WHITE" },  { id:"#ffb000", name:"AMBER" },
+  { id:"#00e5ff", name:"CYAN" },   { id:"#34f5a5", name:"MINT" },
+  { id:"#ff5da2", name:"PINK" },   { id:"#ff7a1a", name:"TANGERINE" },
+  { id:"#b388ff", name:"LILAC" },  { id:"#ff453a", name:"RED" },
+];
+function applyImmInk(id){
+  settings.immInk = id; store.set(LS.settings, settings);
+  if (document.body.classList.contains("immersive"))
+    document.body.style.setProperty("--ink", id);
+  refreshInk();
+  document.querySelectorAll("#ink-swatches .swatch").forEach(s =>
+    s.classList.toggle("sel", s.dataset.id === id));
+}
 
 /* ---------- screens ---------- */
 function show(id){
@@ -43,6 +58,26 @@ function show(id){
   $(id).classList.remove("hidden");
   fit();
 }
+/* help pager: short pages so the calculator never stretches */
+let helpPage = 0;
+const HELP_PAGES = 4;
+function showHelpPage(n){
+  helpPage = Math.max(0, Math.min(HELP_PAGES - 1, n));
+  document.querySelectorAll("#screen-help .help-page").forEach(p =>
+    p.classList.toggle("hidden", +p.dataset.page !== helpPage));
+  const dots = $("help-dots");
+  dots.innerHTML = "";
+  for (let i = 0; i < HELP_PAGES; i++){
+    const d = document.createElement("button");
+    d.className = "help-dot" + (i === helpPage ? " sel" : "");
+    d.dataset.i = i;
+    d.setAttribute("aria-label", "Help page " + (i + 1));
+    dots.appendChild(d);
+  }
+  $("help-prev").disabled = helpPage === 0;
+  $("help-next").disabled = helpPage === HELP_PAGES - 1;
+}
+function openHelp(){ Sfx.click(); showHelpPage(0); show("screen-help"); }
 let toastTimer = 0;
 function toast(msg, ms){
   const t = $("toast");
@@ -1003,6 +1038,7 @@ function autopilot(){
 /* ---------- immersive mode ---------- */
 function enterImmersive(){
   document.body.classList.add("immersive");
+  document.body.style.setProperty("--ink", settings.immInk || "#f2f2f2");
   try {
     const el = document.documentElement;
     if (el.requestFullscreen) { const p = el.requestFullscreen(); if (p && p.catch) p.catch(()=>{}); }
@@ -1013,6 +1049,7 @@ function enterImmersive(){
 }
 function exitImmersive(){
   document.body.classList.remove("immersive");
+  document.body.style.removeProperty("--ink");
   try {
     if (document.fullscreenElement) document.exitFullscreen();
     else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
@@ -1121,7 +1158,8 @@ function applyMuteUI(){
   $("ico-snd-on").classList.toggle("hidden", settings.muted);
   $("ico-snd-off").classList.toggle("hidden", !settings.muted);
   $("key-sound").classList.toggle("off", settings.muted);
-  $("btn-sound-toggle").textContent = "SOUND: " + (settings.muted ? "OFF" : "ON");
+  const bst = $("btn-sound-toggle");
+  if (bst) bst.textContent = "SOUND: " + (settings.muted ? "OFF" : "ON");
 }
 
 /* ---------- bindings ---------- */
@@ -1132,7 +1170,7 @@ function bindUI(){
   $("btn-immersive").addEventListener("click", toggleImmersive);
   $("btn-gfull").addEventListener("click", toggleImmersive);
   $("btn-gpause").addEventListener("click", togglePause);
-  $("btn-how").addEventListener("click", ()=>{ Sfx.click(); show("screen-help"); });
+  $("btn-how").addEventListener("click", openHelp);
   $("btn-help-back").addEventListener("click", ()=>{ Sfx.click(); quitToMenu(); });
   $("btn-settings").addEventListener("click", ()=>{ Sfx.click(); show("screen-settings"); });
   $("btn-set-back").addEventListener("click", ()=>{ Sfx.click(); quitToMenu(); });
@@ -1148,9 +1186,15 @@ function bindUI(){
   $("key-home").addEventListener("click", ()=>{ Sfx.click(); quitToMenu(); });
   $("key-pause").addEventListener("click", togglePause);
   $("key-sound").addEventListener("click", toggleMute);
-  $("key-help").addEventListener("click", ()=>{ Sfx.click(); show("screen-help"); });
+  $("key-help").addEventListener("click", openHelp);
 
-  $("btn-sound-toggle").addEventListener("click", toggleMute);
+  // help pager: 4 short pages so the calculator never stretches
+  $("help-prev").addEventListener("click", ()=>{ Sfx.click(); showHelpPage(helpPage - 1); });
+  $("help-next").addEventListener("click", ()=>{ Sfx.click(); showHelpPage(helpPage + 1); });
+  $("help-dots").addEventListener("click", e => {
+    const d = e.target.closest(".help-dot");
+    if (d){ Sfx.click(); showHelpPage(+d.dataset.i); }
+  });
 
   // theme swatches
   const sw = $("theme-swatches");
@@ -1165,7 +1209,18 @@ function bindUI(){
     sw.appendChild(b);
   });
 
-  // brand name
+  // immersive ink swatches
+  const isw = $("ink-swatches");
+  IMMINKS.forEach(c => {
+    const b = document.createElement("button");
+    b.className = "swatch"; b.dataset.id = c.id;
+    b.style.background = c.id;
+    b.title = c.name;
+    b.innerHTML = `<span class="sw-name">${c.name}</span>`;
+    b.addEventListener("click", ()=>{ Sfx.click(); applyImmInk(c.id); });
+    isw.appendChild(b);
+  });
+  applyImmInk(settings.immInk || "#f2f2f2");
   const bi = $("brand-input");
   bi.value = settings.brand || "";
   const applyBrand = ()=>{

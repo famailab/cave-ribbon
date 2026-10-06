@@ -223,6 +223,14 @@ body{
 }
 .help-list li{margin-bottom:8px;}
 .help-list b{color:#2f4a35;}
+.help-pager{display:flex; align-items:center; justify-content:center; gap:14px; margin:10px 0 2px;}
+.help-dots{display:flex; gap:10px; align-items:center;}
+.help-dot{
+  width:12px; height:12px; border-radius:50%; border:none; padding:0; cursor:pointer;
+  background:var(--ink); opacity:.22;
+}
+.help-dot.sel{opacity:1; transform:scale(1.18);}
+.lcd-btn.small:disabled{opacity:.3; cursor:default;}
 .set-group{width:100%; max-width:330px; margin:10px 0 4px;}
 .set-label{
   font-size:12px; letter-spacing:3px; font-weight:800; color:var(--ink);

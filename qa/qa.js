@@ -7,8 +7,14 @@ const vm = require("vm");
 
 function makeEl(id, w = 386, h = 470) {
   const cls = new Set();
+  const style = {
+    _p: {},
+    setProperty(k, v){ this._p[k] = String(v); },
+    removeProperty(k){ delete this._p[k]; },
+    getPropertyValue(k){ return this._p[k] || ""; },
+  };
   return {
-    id, style: {}, dataset: {}, _text: "", _html: "", value: "",
+    id, style, dataset: {}, _text: "", _html: "", value: "",
     classList: {
       add: (...a) => a.forEach(x => cls.add(x)),
       remove: (...a) => a.forEach(x => cls.delete(x)),
@@ -16,6 +22,7 @@ function makeEl(id, w = 386, h = 470) {
       contains: c => cls.has(c),
     },
     addEventListener() {}, removeEventListener() {}, appendChild() {}, setPointerCapture() {},
+    setAttribute() {},
     get textContent() { return this._text; }, set textContent(v) { this._text = String(v); },
     get innerHTML() { return this._html; }, set innerHTML(v) { this._html = String(v); },
     getBoundingClientRect: () => ({ left: 0, top: 0, width: w, height: h }),
@@ -158,6 +165,26 @@ const driver = `
     ok("boss music api", typeof Sfx.bossMusicStart === "function" && typeof Sfx.bossMusicStop === "function");
     quitToMenu();
   } catch(e){ ok("weapon cores", false, e.message); }
+  // immersive ink presets + help pager
+  try {
+    ok("ink palette", IMMINKS.length === 8 && IMMINKS[0].id === "#f2f2f2", IMMINKS.length + " presets");
+    applyImmInk("#ffb000");
+    ok("ink saved", settings.immInk === "#ffb000");
+    enterImmersive();
+    ok("ink applied in immersive", document.getElementById("body").style._p["--ink"] === "#ffb000");
+    exitImmersive();
+    ok("ink removed on exit", !document.getElementById("body").style._p["--ink"]);
+    applyImmInk("#f2f2f2");
+    openHelp();
+    ok("help opens on page 0", helpPage === 0 && !document.getElementById("screen-help").classList.contains("hidden"));
+    showHelpPage(2);
+    ok("help page 2", helpPage === 2 && $("help-next").disabled === false && $("help-prev").disabled === false);
+    showHelpPage(3);
+    ok("help last page", helpPage === 3 && $("help-next").disabled === true);
+    showHelpPage(9);
+    ok("help page clamped", helpPage === 3);
+    quitToMenu();
+  } catch(e){ ok("ink/help", false, e.message); }
   console.log(failures === 0 ? "ALL QA CHECKS PASSED" : failures + " FAILURES");
   process.exit(failures ? 1 : 0);
 })();

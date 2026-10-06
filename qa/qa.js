@@ -126,6 +126,38 @@ const driver = `
     ok("boss scales with diff", G.s.boss.hp > hp0, "hp=" + G.s.boss.hp);
     quitToMenu();
   } catch (e) { ok("boss/diff", false, e.message + " | " + e.stack.split("\\n")[1]); }
+  // weapon cores: power rock -> core -> gun upgrade, boss loot
+  try {
+    start("ship"); frames(160);
+    const M = Modes.ship, s = G.s;
+    // power rocks appear in the wild (~10%)
+    G.t = 10;
+    let powerSeen = 0;
+    for (let i = 0; i < 60; i++){ M.spawnRock(s); if (s.rocks[s.rocks.length-1].power) powerSeen++; }
+    s.rocks.length = 0;
+    ok("power rocks spawn", powerSeen > 0, powerSeen + "/60");
+    // crack a power rock through the real collision path
+    const cores0 = s.cores;
+    const rock = { x:G.px, y:G.py - 100, r:14, vs:[1,1,1,1,1,1,1], rot:0, vr:0, vx:0, vy:0, power:true };
+    s.rocks.push(rock);
+    let guard = 0;
+    while (s.cores === cores0 && guard++ < 400 && !G.dead){ rock.x = G.px; rock.y = G.py - 100; frames(1); }
+    ok("power rock grants core", s.cores === cores0 + 1, "cores=" + s.cores);
+    ok("bullet speed up", s.bspd > 1, "bspd=" + s.bspd.toFixed(2));
+    // loot orb collection
+    s.loot.push({ x:G.px, y:G.py, vy:95, ph:0 });
+    const c1 = s.cores;
+    frames(2);
+    ok("loot collected", s.cores === c1 + 1, "cores=" + s.cores);
+    // gun thresholds
+    while (s.cores < 3) M.addCore(s, G.px, G.py);
+    ok("gun lv2 at 3 cores", s.gun === 2, "gun=" + s.gun);
+    while (s.cores < 6) M.addCore(s, G.px, G.py);
+    ok("gun lv3 at 6 cores", s.gun === 3, "gun=" + s.gun);
+    ok("bspd capped", s.bspd <= 1.6, "bspd=" + s.bspd.toFixed(2));
+    ok("boss music api", typeof Sfx.bossMusicStart === "function" && typeof Sfx.bossMusicStop === "function");
+    quitToMenu();
+  } catch(e){ ok("weapon cores", false, e.message); }
   console.log(failures === 0 ? "ALL QA CHECKS PASSED" : failures + " FAILURES");
   process.exit(failures ? 1 : 0);
 })();

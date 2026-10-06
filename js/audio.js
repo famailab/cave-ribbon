@@ -50,7 +50,7 @@ const Sfx = (() => {
   }
 
   return {
-    setMuted(m) { muted = !!m; },
+    setMuted(m) { muted = !!m; if (muted) this.bossMusicStop(); },
     isMuted() { return muted; },
     unlock() { try { ac(); } catch (e) {} },           // call on first user gesture
     click()  { blip({ f0: 660, f1: 520, type: "square", dur: 0.05, vol: 0.15 }); },
@@ -144,6 +144,94 @@ const Sfx = (() => {
         e.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.12);
         setTimeout(()=>{ try { e.o1.stop(); e.o2.stop(); e.lfo.stop(); } catch(_){} }, 500);
       } catch(_){}
+    },
+    /* ---- boss battle music: vast mysterious cosmos + heart-pounding tension ----
+       Generative A-minor sequencer at 104 BPM: deep space drone, heartbeat kick,
+       driving bass, sparse eerie lead with vibrato, distant sonar ticks. */
+    _boss:null,
+    bossMusicStart(){
+      if (muted || this._boss) return;
+      try {
+        const c = ac(), t0 = c.currentTime + 0.06;
+        // deep space drone: detuned triangles + sub sine, slow cosmic swell
+        const dg = c.createGain(); dg.gain.value = 0.0001;
+        dg.gain.setTargetAtTime(0.055, t0, 1.2);
+        const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 200;
+        const mk = (type, f) => { const o = c.createOscillator(); o.type = type; o.frequency.value = f; o.connect(lp); o.start(t0); return o; };
+        const d1 = mk("triangle", 55), d2 = mk("triangle", 55 * 1.008), d3 = mk("sine", 110.4);
+        lp.connect(dg); dg.connect(master);
+        const lfo = c.createOscillator(); lfo.frequency.value = 0.07;
+        const lg = c.createGain(); lg.gain.value = 0.028;
+        lfo.connect(lg); lg.connect(dg.gain); lfo.start(t0);
+        const B = this._boss = { step:0, nextT:t0, drone:{ d1, d2, d3, lfo, dg }, timer:0 };
+        B.timer = setInterval(() => this._bossTick(), 120);
+      } catch(e){}
+    },
+    bossMusicStop(){
+      const B = this._boss;
+      if (!B) return;
+      this._boss = null;
+      try {
+        clearInterval(B.timer);
+        const c = ac(), ds = B.drone;
+        ds.dg.gain.setTargetAtTime(0.0001, c.currentTime, 0.25);
+        setTimeout(() => { try { ds.d1.stop(); ds.d2.stop(); ds.d3.stop(); ds.lfo.stop(); } catch(_){} }, 900);
+      } catch(_){}
+    },
+    _bossTick(){
+      const B = this._boss;
+      if (!B || muted){ this.bossMusicStop(); return; }
+      try {
+        const c = ac(), SPB = 60 / 104 / 2;   // 8th note at 104 BPM
+        while (B.nextT < c.currentTime + 0.35){
+          this._bossStep(B.step, B.nextT);
+          B.nextT += SPB; B.step++;
+        }
+      } catch(e){}
+    },
+    _bossStep(s, t){
+      const c = ac();
+      const bar = Math.floor(s / 8) % 4, sub = s % 8;
+      const roots = [55, 43.65, 65.41, 82.41];   // A1 F1 C2 E2 — dark 4-bar loop
+      const tone = (type, f0, f1, dur, vol, dest) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = type; o.frequency.setValueAtTime(f0, t);
+        if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+        env(g, t, 0.008, vol, dur);
+        o.connect(g); g.connect(dest || master);
+        o.start(t); o.stop(t + dur + 0.05);
+      };
+      // heartbeat kick on quarters — lub-dub, step by careful step
+      if (sub % 2 === 0) tone("sine", 72, 38, 0.14, sub % 4 === 0 ? 0.5 : 0.32);
+      // driving bass, octave hop at the end of each bar
+      const blp = c.createBiquadFilter(); blp.type = "lowpass"; blp.frequency.value = 320;
+      blp.connect(master);
+      tone("sawtooth", roots[bar] * (sub === 6 ? 2 : 1), null, 0.2, 0.15, blp);
+      // offbeat tick: distant sonar in the void
+      if (sub % 2 === 1){
+        const len = Math.floor(c.sampleRate * 0.03);
+        const buf = c.createBuffer(1, len, c.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const src = c.createBufferSource(); src.buffer = buf;
+        const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7000;
+        const g = c.createGain(); g.gain.value = 0.035;
+        src.connect(hp); hp.connect(g); g.connect(master);
+        src.start(t);
+      }
+      // eerie lead: sparse high notes wandering the A-minor sky
+      if (sub === 0 || sub === 5){
+        const scale = [440, 523.25, 587.33, 659.26, 880];
+        const n = scale[(bar * 2 + sub) % scale.length] * (sub === 5 ? 1.5 : 1);
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = "sine"; o.frequency.value = n;
+        const vib = c.createOscillator(); vib.frequency.value = 5.5;
+        const vg = c.createGain(); vg.gain.value = n * 0.012;
+        vib.connect(vg); vg.connect(o.frequency);
+        env(g, t, 0.05, 0.07, 0.9);
+        o.connect(g); g.connect(master);
+        o.start(t); vib.start(t); o.stop(t + 1.1); vib.stop(t + 1.1);
+      }
     },
   };
 })();

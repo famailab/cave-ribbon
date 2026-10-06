@@ -263,14 +263,15 @@ flappy: {
   },
   draw(){
     const s = G.s, PW = 64;
+    ctx.fillStyle = INK;   // flappy pipes stay solid — ghost fill made them unreadable
     for (const p of s.pipes){
       const x = p.x - G.worldX;
       if (x > G.W || x < -PW - 4) continue;
       const gt = p.gy - s.gap/2, gb = p.gy + s.gap/2;
-      wallTop(x, 0, PW, gt);
-      wallBottom(x, gb, PW, G.H - gb);
-      wallBlock(x - 5, gt - 16, PW + 10, 16);   // caps
-      wallBlock(x - 5, gb, PW + 10, 16);
+      ctx.fillRect(x, 0, PW, gt);
+      ctx.fillRect(x, gb, PW, G.H - gb);
+      ctx.fillRect(x - 5, gt - 16, PW + 10, 16);   // caps
+      ctx.fillRect(x - 5, gb, PW + 10, 16);
     }
     drawBird(G.px, G.py, G.vy, s.wing);
   },
@@ -364,6 +365,7 @@ ship: {
       rocks:[], bullets:[], fireT:0, spawnT:0.6, stars:[],
       kills:0, gun:1, drones:[], ebullets:[], droneT:5,
       miss:0, gauge:0, boss:null, diff:0,
+      cores:0, bspd:1, loot:[],
     };
     G.px = G.W/2; G.py = G.H*0.68;
     for (let i = 0; i < 42; i++)
@@ -375,6 +377,7 @@ ship: {
     s.boss = { x:G.W/2, y:-70, hp, maxhp:hp, t:0, fireA:0.6, fireB:2.2, ang:0 };
     floater(G.W/2, G.H/2 - 40, "!! BOSS !!");
     Sfx.alarm();
+    Sfx.bossMusicStart();   // the void starts to sing
   },
   spawnRock(s){
     const r = 12 + Math.random() * 15;
@@ -384,20 +387,30 @@ ship: {
     s.rocks.push({
       x:Math.random() * G.W, y:-30, r, vs, rot:Math.random()*6.28, vr:(Math.random()-0.5)*2,
       vx:(Math.random()-0.5)*40, vy:Math.min(300 + s.diff * 25, 135 + G.t * 1.3 + s.diff * 22),
+      power: G.t > 5 && Math.random() < 0.10,   // energy rock: crack it for a weapon core
     });
   },
   fire(s){
-    const bx = G.px, by = G.py - 18;
-    if (s.gun === 1) s.bullets.push({ x:bx, y:by, vx:0 });
-    else if (s.gun === 2){ s.bullets.push({ x:bx-7, y:by, vx:0 }); s.bullets.push({ x:bx+7, y:by, vx:0 }); }
-    else { s.bullets.push({ x:bx, y:by, vx:0 }); s.bullets.push({ x:bx-8, y:by, vx:-70 }); s.bullets.push({ x:bx+8, y:by, vx:70 }); }
+    const bx = G.px, by = G.py - 18, sp = 560 * s.bspd;
+    const mk = (x, vx) => ({ x, y:by, vx, spd:sp });
+    if (s.gun === 1) s.bullets.push(mk(bx, 0));
+    else if (s.gun === 2){ s.bullets.push(mk(bx-7, 0)); s.bullets.push(mk(bx+7, 0)); }
+    else { s.bullets.push(mk(bx, 0)); s.bullets.push(mk(bx-8, -70)); s.bullets.push(mk(bx+8, 70)); }
   },
   addKill(s, x, y, pts){
     s.kills++;
     G.score += pts;
     floater(x, y, "+" + pts);
-    if (s.gun === 1 && s.kills >= 8){ s.gun = 2; floater(G.px, G.py - 40, "GUN LV2!"); Sfx.bonus(); }
-    else if (s.gun === 2 && s.kills >= 20){ s.gun = 3; floater(G.px, G.py - 40, "GUN LV3!"); Sfx.bonus(); }
+  },
+  /* weapon core: every core speeds bullets +8% (cap 1.6x);
+     3 cores -> GUN LV2, 6 cores -> GUN LV3 */
+  addCore(s, x, y){
+    s.cores++;
+    s.bspd = Math.min(1.6, s.bspd + 0.08);
+    Sfx.bonus();
+    if (s.cores >= 6 && s.gun < 3){ s.gun = 3; floater(G.px, G.py - 40, "GUN LV3!"); }
+    else if (s.cores >= 3 && s.gun < 2){ s.gun = 2; floater(G.px, G.py - 40, "GUN LV2!"); }
+    else floater(x, y, "+CORE");
   },
   update(dt){
     const s = G.s, self = this;
@@ -424,7 +437,7 @@ ship: {
     s.fireT -= dt;
     if (s.fireT <= 0){ s.fireT = 0.24; self.fire(s); Sfx.move(); }
     for (let i = s.bullets.length - 1; i >= 0; i--){
-      const b = s.bullets[i]; b.y -= 560 * dt; b.x += b.vx * dt;
+      const b = s.bullets[i]; b.y -= (b.spd || 560) * dt; b.x += b.vx * dt;
       if (b.y < -12 || b.x < -12 || b.x > G.W + 12) s.bullets.splice(i, 1);
     }
     // rocks
@@ -450,8 +463,10 @@ ship: {
         const b = s.bullets[j];
         if (Math.hypot(b.x - r.x, b.y - r.y) < r.r + 4){
           s.bullets.splice(j, 1); s.rocks.splice(i, 1);
-          burst(r.x, r.y, 14);
-          self.addKill(s, r.x, r.y, 10); Sfx.pop(1);
+          burst(r.x, r.y, r.power ? 26 : 14);
+          if (r.power) self.addCore(s, r.x, r.y);   // energy rock: weapon core
+          else self.addKill(s, r.x, r.y, 10);
+          Sfx.pop(1);
           dead = true; break;
         }
       }
@@ -511,6 +526,17 @@ ship: {
       if (b.x < -12 || b.x > G.W + 12 || b.y < -12 || b.y > G.H + 12){ s.ebullets.splice(i, 1); continue; }
       if (Math.hypot(G.px - b.x, G.py - b.y) < 11){ die(); return; }
     }
+    // boss loot: drifting weapon cores — fly into them to catch
+    for (let i = s.loot.length - 1; i >= 0; i--){
+      const l = s.loot[i];
+      l.y += l.vy * dt;
+      l.x += Math.sin(G.t * 3 + l.ph) * 36 * dt;
+      if (l.y > G.H + 20){ s.loot.splice(i, 1); continue; }
+      if (Math.hypot(G.px - l.x, G.py - l.y) < 24){
+        s.loot.splice(i, 1);
+        self.addCore(s, l.x, l.y);
+      }
+    }
     // --- the BOSS: hovering fortress, bullet-hell patterns ---
     const B = s.boss;
     if (B){
@@ -549,12 +575,16 @@ ship: {
             s.boss = null;
             s.gauge = 0;                                  // gauge resets, counting starts over
             s.diff++;                                     // every boss kill turns up the heat
+            Sfx.bossMusicStop();                          // the void falls silent again
             burst(B.x, B.y, 46);
             G.shake = 0.4;
             Sfx.fanfare();
             G.score += 500;
             floater(B.x, B.y, "BOSS DOWN +500");
             floater(G.px, G.py - 56, "DIFFICULTY UP");
+            // boss loot: 3 weapon cores drift down — catch them!
+            for (let k = -1; k <= 1; k++)
+              s.loot.push({ x:B.x + k * 34, y:B.y, vy:95, ph:Math.random() * 6.28 });
             break;
           }
         }
@@ -582,6 +612,14 @@ ship: {
         i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
       }
       ctx.stroke(); ctx.restore();
+      // energy rock: pulsing white core, ringed
+      if (r.power){
+        const pr = 4 + Math.sin(G.t * 6 + r.rot * 3) * 1.5;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(r.x, r.y, pr, 0, 6.29); ctx.fill();
+        ctx.strokeStyle = INK; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(r.x, r.y, pr + 3.5, 0, 6.29); ctx.stroke();
+      }
     }
     // drones: little saucers with a blinking eye
     for (const d of s.drones){
@@ -623,6 +661,16 @@ ship: {
       ctx.strokeRect(bx, by, bw, 9);
       ctx.fillRect(bx + 2, by + 2, (bw - 4) * Math.max(0, B.hp / B.maxhp), 5);
     }
+    // loot cores: pulsing white diamonds with an ink ring — catch them!
+    for (const l of s.loot){
+      const p = 5 + Math.sin(G.t * 8 + l.ph) * 2;
+      ctx.save(); ctx.translate(l.x, l.y); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(-p * 0.7, -p * 0.7, p * 1.4, p * 1.4);
+      ctx.strokeStyle = INK; ctx.lineWidth = 2;
+      ctx.strokeRect(-p * 0.7, -p * 0.7, p * 1.4, p * 1.4);
+      ctx.restore();
+    }
     ctx.fillStyle = INK;
     for (const b of s.bullets) ctx.fillRect(b.x - 2, b.y - 8, 4, 12);
     // enemy bullets: diamonds
@@ -640,21 +688,20 @@ ship: {
 };
 
 /* ---------- player drawings (LCD-ink style) ---------- */
-/* OLED-friendly walls: dim ghost fill, bright line only on the side facing
-   the playfield — boundaries stay readable without big glaring white blocks */
+/* OLED walls in immersive: fully transparent, only the bright boundary line —
+   edges stay readable with zero glare (the old ghost fill showed banding) */
 function wallTop(x, y, w, h){          // wall hanging from above: bright edge at its bottom
-  if (!document.body.classList.contains("immersive")){ ctx.fillStyle = INK; ctx.fillRect(x, y, w, h); return; }
-  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = INK; ctx.fillRect(x, y + h - 2.5, w, 2.5);
+  ctx.fillStyle = INK;
+  if (document.body.classList.contains("immersive")) ctx.fillRect(x, y + h - 2.5, w, 2.5);
+  else ctx.fillRect(x, y, w, h);
 }
 function wallBottom(x, y, w, h){       // wall rising from below: bright edge at its top
-  if (!document.body.classList.contains("immersive")){ ctx.fillStyle = INK; ctx.fillRect(x, y, w, h); return; }
-  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = INK; ctx.fillRect(x, y, w, 2.5);
+  ctx.fillStyle = INK;
+  if (document.body.classList.contains("immersive")) ctx.fillRect(x, y, w, 2.5);
+  else ctx.fillRect(x, y, w, h);
 }
-function wallBlock(x, y, w, h){        // floating obstacle: dim fill + bright outline
+function wallBlock(x, y, w, h){        // floating obstacle: bright outline only
   if (!document.body.classList.contains("immersive")){ ctx.fillStyle = INK; ctx.fillRect(x, y, w, h); return; }
-  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
 }
 /* kite: a diamond that tilts with velocity, streaming two long tails
@@ -765,7 +812,7 @@ function start(modeKey){
   G.dead = false; G.deathT = 0; G.overShown = false;
   G.parts = []; G.floats = []; G.streaks = [];
   G.phase = "countdown"; G.countT = 2.4; G.lastCount = 4;
-  Sfx.engineStop();
+  Sfx.engineStop(); Sfx.bossMusicStop();
   $("pauseveil").classList.add("hidden");
   show("screen-game");              // first: the canvas measures its real size…
   G.px = G.W * 0.3; G.py = G.H / 2;
@@ -779,7 +826,7 @@ function die(){
   if (G.dead) return;
   G.dead = true; G.deathT = 0;
   G.pressing = false;
-  Sfx.engineStop();
+  Sfx.engineStop(); Sfx.bossMusicStop();
   burst(G.px, G.py, 22);
   // starburst streaks radiating from the impact point
   for (let i = 0; i < 26; i++){
@@ -813,13 +860,16 @@ function togglePause(){
   if (!G.running || !$("screen-game") || $("screen-game").classList.contains("hidden")) return;
   G.paused = !G.paused;
   $("pauseveil").classList.toggle("hidden", !G.paused);
-  if (G.paused) Sfx.engineStop();
-  else if (G.modeKey === "heli" && !G.dead && G.phase === "play") Sfx.engineStart();
+  if (G.paused){ Sfx.engineStop(); Sfx.bossMusicStop(); }
+  else {
+    if (G.modeKey === "heli" && !G.dead && G.phase === "play") Sfx.engineStart();
+    if (G.modeKey === "ship" && G.s && G.s.boss && !G.dead) Sfx.bossMusicStart();
+  }
   Sfx.click();
 }
 function quitToMenu(){
   G.running = false; G.paused = false;
-  Sfx.engineStop();
+  Sfx.engineStop(); Sfx.bossMusicStop();
   $("pauseveil").classList.add("hidden");
   refreshTitleBest();
   show("screen-title");
@@ -1060,8 +1110,11 @@ function toggleMute(){
   settings.muted = !settings.muted;
   store.set(LS.settings, settings);
   Sfx.setMuted(settings.muted);
-  if (settings.muted) Sfx.engineStop();
-  else if (G.running && !G.paused && G.modeKey === "heli" && !G.dead && G.phase === "play") Sfx.engineStart();
+  if (settings.muted){ Sfx.engineStop(); Sfx.bossMusicStop(); }
+  else {
+    if (G.running && !G.paused && G.modeKey === "heli" && !G.dead && G.phase === "play") Sfx.engineStart();
+    if (G.running && !G.paused && G.modeKey === "ship" && G.s && G.s.boss && !G.dead) Sfx.bossMusicStart();
+  }
   applyMuteUI();
 }
 function applyMuteUI(){

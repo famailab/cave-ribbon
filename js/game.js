@@ -205,12 +205,11 @@ cave: {
   },
   draw(){
     const s = G.s;
-    ctx.fillStyle = INK;
     for (const sg of s.segs){
       const x = sg.x - G.worldX;
       if (x > G.W || x < -COLW - 2) continue;
-      ctx.fillRect(x, 0, COLW + 1, sg.top);
-      ctx.fillRect(x, sg.bot, COLW + 1, G.H - sg.bot);
+      wallTop(x, 0, COLW + 1, sg.top);
+      wallBottom(x, sg.bot, COLW + 1, G.H - sg.bot);
     }
     // ribbon trail
     const tr = s.trail;
@@ -264,15 +263,14 @@ flappy: {
   },
   draw(){
     const s = G.s, PW = 64;
-    ctx.fillStyle = INK;
     for (const p of s.pipes){
       const x = p.x - G.worldX;
       if (x > G.W || x < -PW - 4) continue;
       const gt = p.gy - s.gap/2, gb = p.gy + s.gap/2;
-      ctx.fillRect(x, 0, PW, gt);
-      ctx.fillRect(x, gb, PW, G.H - gb);
-      ctx.fillRect(x - 5, gt - 16, PW + 10, 16);   // caps
-      ctx.fillRect(x - 5, gb, PW + 10, 16);
+      wallTop(x, 0, PW, gt);
+      wallBottom(x, gb, PW, G.H - gb);
+      wallBlock(x - 5, gt - 16, PW + 10, 16);   // caps
+      wallBlock(x - 5, gb, PW + 10, 16);
     }
     drawBird(G.px, G.py, G.vy, s.wing);
   },
@@ -340,13 +338,12 @@ heli: {
   },
   draw(){
     const s = G.s;
-    ctx.fillStyle = INK;
-    ctx.fillRect(0, 0, G.W, s.ceil || 26);
-    ctx.fillRect(0, s.floor || (G.H - 26), G.W, G.H);
+    wallTop(0, 0, G.W, s.ceil || 26);
+    wallBottom(0, s.floor || (G.H - 26), G.W, G.H);
     for (const b of s.blocks){
       const x = b.x - G.worldX;
       if (x > G.W || x < -b.w - 2) continue;
-      ctx.fillRect(x, b.y, b.w, b.h);
+      wallBlock(x, b.y, b.w, b.h);
     }
     for (const b of s.birds){
       if (b._bx === undefined || b._bx < -30 || b._bx > G.W + 30) continue;
@@ -366,15 +363,15 @@ ship: {
       tx:G.W/2, ty:G.H*0.68, dragging:false,
       rocks:[], bullets:[], fireT:0, spawnT:0.6, stars:[],
       kills:0, gun:1, drones:[], ebullets:[], droneT:5,
-      miss:0, gauge:0, boss:null,
+      miss:0, gauge:0, boss:null, diff:0,
     };
     G.px = G.W/2; G.py = G.H*0.68;
     for (let i = 0; i < 42; i++)
       s.stars.push({ x:Math.random()*G.W, y:Math.random()*G.H, d:0.3 + Math.random()*0.7 });
   },
   spawnBoss(s){
-    // the more you score, the meaner it gets
-    const hp = Math.min(120, 40 + Math.floor(G.score / 10));
+    // the more you score — and the more bosses you've sunk — the meaner it gets
+    const hp = Math.min(160, 40 + Math.floor(G.score / 10) + s.diff * 12);
     s.boss = { x:G.W/2, y:-70, hp, maxhp:hp, t:0, fireA:0.6, fireB:2.2, ang:0 };
     floater(G.W/2, G.H/2 - 40, "!! BOSS !!");
     Sfx.alarm();
@@ -386,7 +383,7 @@ ship: {
     for (let i = 0; i < n; i++) vs.push(0.72 + Math.random() * 0.5);
     s.rocks.push({
       x:Math.random() * G.W, y:-30, r, vs, rot:Math.random()*6.28, vr:(Math.random()-0.5)*2,
-      vx:(Math.random()-0.5)*40, vy:Math.min(300, 135 + G.t*1.3),
+      vx:(Math.random()-0.5)*40, vy:Math.min(300 + s.diff * 25, 135 + G.t * 1.3 + s.diff * 22),
     });
   },
   fire(s){
@@ -433,8 +430,9 @@ ship: {
     // rocks
     s.spawnT -= dt;
     if (s.spawnT <= 0){
-      const iv = Math.max(0.42, 0.95 - G.t * 0.008);
-      s.spawnT = s.boss ? iv * 4 : iv;               // boss fight: rocks take a back seat
+      // every boss kill turns up the heat: rocks come faster and more often
+      const iv = Math.max(0.42, 0.95 - G.t * 0.008) * Math.pow(0.88, s.diff);
+      s.spawnT = Math.max(0.28, s.boss ? iv * 4 : iv);
       this.spawnRock(s);
     }
     for (let i = s.rocks.length - 1; i >= 0; i--){
@@ -462,9 +460,11 @@ ship: {
     }
     // --- enemy drones: they hunt back ---
     s.droneT -= dt;
-    if (!s.boss && G.t > 15 && s.droneT <= 0 && s.drones.length < 2){
-      s.droneT = 3.5 + Math.random() * 2.5;
-      s.drones.push({ x:Math.random()*G.W, y:-30, hp:2, t:0, fireT:1.4, ph:Math.random()*6.28, leaving:0 });
+    const maxDrones = s.diff >= 3 ? 3 : 2;
+    if (!s.boss && G.t > 15 && s.droneT <= 0 && s.drones.length < maxDrones){
+      s.droneT = (3.5 + Math.random() * 2.5) / (1 + 0.4 * s.diff);
+      const dhp = Math.min(5, 2 + Math.floor(s.diff / 2));
+      s.drones.push({ x:Math.random()*G.W, y:-30, hp:dhp, t:0, fireT:1.4, ph:Math.random()*6.28, leaving:0 });
     }
     for (let i = s.drones.length - 1; i >= 0; i--){
       const d = s.drones[i];
@@ -475,12 +475,13 @@ ship: {
       const hx = G.W/2 + Math.sin(d.t * 0.9 + d.ph) * G.W * 0.32;
       d.x += (hx - d.x) * Math.min(1, 3 * dt);
       d.y += (110 - d.y) * Math.min(1, 2 * dt);
-      // aimed fire at the player
+      // aimed fire at the player — faster and angrier as difficulty rises
       d.fireT -= dt;
       if (d.fireT <= 0 && d.y > 40){
-        d.fireT = 1.5 + Math.random() * 0.8;
+        d.fireT = Math.max(0.7, (1.5 + Math.random() * 0.8) - s.diff * 0.12);
         const a = Math.atan2(G.py - d.y, G.px - d.x);
-        s.ebullets.push({ x:d.x, y:d.y + 10, vx:Math.cos(a) * 260, vy:Math.sin(a) * 260 });
+        const bs = Math.min(380, 260 + s.diff * 18);
+        s.ebullets.push({ x:d.x, y:d.y + 10, vx:Math.cos(a) * bs, vy:Math.sin(a) * bs });
         Sfx.deny();
       }
       // player bullets vs drone
@@ -547,11 +548,13 @@ ship: {
           if (B.hp <= 0){
             s.boss = null;
             s.gauge = 0;                                  // gauge resets, counting starts over
+            s.diff++;                                     // every boss kill turns up the heat
             burst(B.x, B.y, 46);
             G.shake = 0.4;
             Sfx.fanfare();
             G.score += 500;
             floater(B.x, B.y, "BOSS DOWN +500");
+            floater(G.px, G.py - 56, "DIFFICULTY UP");
             break;
           }
         }
@@ -637,6 +640,23 @@ ship: {
 };
 
 /* ---------- player drawings (LCD-ink style) ---------- */
+/* OLED-friendly walls: dim ghost fill, bright line only on the side facing
+   the playfield — boundaries stay readable without big glaring white blocks */
+function wallTop(x, y, w, h){          // wall hanging from above: bright edge at its bottom
+  if (!document.body.classList.contains("immersive")){ ctx.fillStyle = INK; ctx.fillRect(x, y, w, h); return; }
+  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = INK; ctx.fillRect(x, y + h - 2.5, w, 2.5);
+}
+function wallBottom(x, y, w, h){       // wall rising from below: bright edge at its top
+  if (!document.body.classList.contains("immersive")){ ctx.fillStyle = INK; ctx.fillRect(x, y, w, h); return; }
+  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = INK; ctx.fillRect(x, y, w, 2.5);
+}
+function wallBlock(x, y, w, h){        // floating obstacle: dim fill + bright outline
+  if (!document.body.classList.contains("immersive")){ ctx.fillStyle = INK; ctx.fillRect(x, y, w, h); return; }
+  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+}
 /* kite: a diamond that tilts with velocity, streaming two long tails
    drawn from the position history — the classic ribbon, with a face */
 function drawRibbonHead(x, y, vx, vy){

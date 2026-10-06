@@ -237,6 +237,7 @@ body{
   margin-bottom:8px; opacity:.75;
 }
 .swatches{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; padding-bottom:16px;}
+#ink-swatches{padding-bottom:2px;}
 .swatch{
   width:52px; height:52px; border-radius:12px; cursor:pointer; padding:0;
   border:3px solid rgba(0,0,0,.25); position:relative; flex:none;

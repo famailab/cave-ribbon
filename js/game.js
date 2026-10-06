@@ -1209,14 +1209,15 @@ function bindUI(){
     sw.appendChild(b);
   });
 
-  // immersive ink swatches
+  // immersive ink swatches: color blocks only, no labels (8 wrap to 2 rows —
+  // labels would be covered by the second row)
   const isw = $("ink-swatches");
   IMMINKS.forEach(c => {
     const b = document.createElement("button");
     b.className = "swatch"; b.dataset.id = c.id;
     b.style.background = c.id;
     b.title = c.name;
-    b.innerHTML = `<span class="sw-name">${c.name}</span>`;
+    b.setAttribute("aria-label", "Immersive ink " + c.name);
     b.addEventListener("click", ()=>{ Sfx.click(); applyImmInk(c.id); });
     isw.appendChild(b);
   });
